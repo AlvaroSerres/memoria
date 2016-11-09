@@ -1,6 +1,8 @@
 # memoria
 Todo el código relativo al control de la mano de 3 dedos
 
+*OBS: El contenido actual del branch master no es una versión definitiva.
+
 Los programas que comienzan con "0" son programas para probar 
 que se pueda mover la mano, que el controlador funcione y que
 el filtrado por color este funcionando según las condiciones
