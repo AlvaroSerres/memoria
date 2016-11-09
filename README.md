@@ -29,3 +29,6 @@ De lo que queda:
     
 >  "main_pulgar.py" es un programa en desarrollo. Controlará únicamente el dedo
     pulgar para que puede llegar a hacer contacto con el objeto (de color ROJO).
+
+>  "log.txt" es un intento por mantener un registro de modificaciones que pretendo hacer
+    y/o que se han hecho.
