@@ -1,92 +1,100 @@
 """
-Script para controlar el dedo pulgar con 1 o 2 motores 
-(el primer servo queda fijo)
+Script para el control del dedo pulgar. Se debe colocar un objeto
+rojo al alcance del dedo. 
 """
 
 # --------------------------------------------------------------
 # Importación de módulos
 # --------------------------------------------------------------
 import mis_funciones as mf
-# import numpy as np
-import controlador
+import controladores 
 import argparse
+import time
 import cv2
 
-
-# --------------------------------------------------------------
+# ================================================
 # Manejo de argumentos por línea de comando (shell)
-# --------------------------------------------------------------
 ap = argparse.ArgumentParser()
-ap.add_argument("-m", "--motores", required=False,
-        help="# de motores a controlar (1 o 2, 1 por defecto)")
 ap.add_argument("-g", "--guardar", required=False, action="store_true",
-        help="Si se quiere guardar todos los atributos del controlador")
+        help="Sólo explorar y guardar primitivas.")
+ap.add_argument("-c", "--cargar", required=False,
+        help="Extensión (número) del archivo de datos a cargar")
 
 args = ap.parse_args()
 
-# Cantidad de motores
-if args.motores == None:
-    cantidad_motores = 1
-else:
-    cantidad_motores = int(args.motores)
+def main(args):
+    print("Iniciando...")
+    # Argumentos
+    guardar = args.guardar
+    extension = args.cargar
 
-# --------------------------------------------------------------
-# Conexión de hardware y determinación de punto objetivo
-# --------------------------------------------------------------
-print("\tConectando cámara...")
-camara = cv2.VideoCapture(1)
+    # =================================================
+    # Inicialización hardware e instanciación controlador
+    camara = cv2.VideoCapture(1)
+    mano = mf.Mano(camara)
+    ctrl = controladores.Ctrl_Pulgar()
 
-print("\tConectando mano...")
-mano = mf.Mano(camara, yema_pulgar_visible=True)
+    if guardar:
+        # Comienzo de la exploración exhaustiva
+        print("Exploración exhaustiva...")
+        ctrl.explorar_ex(camara, mano)
 
-print("\tListo!\n")
-print("---------------------------------------------------------------------")
-print("\tPosiciona el objeto (rojo). Luego, presiona enter.")
-print("---------------------------------------------------------------------")
-_ = input()
+        # Guardar las primitivas y terminar
+        primitivas = mf.primitivas_np2list(ctrl.primitivas.copy())
+        mf.guardar_datos("pulgar", primitivas)
+        return
 
-# Posición objetivo
-imagen = mf.take_picture(camara)
-# filtrada = mf.color_filter(imagen, "red")
-# [r_objetivo, _] = mf.get_centroid(filtrada, method="contorno")
+    # else: 
+    datos = mf.cargar_datos("pulgar", extension)
+    # si no se pudo cargar datos, termina
+    if datos == None:
+        return
+    else:
+        ctrl.primitivas = datos
 
-# Posición objetivo ahora es cercano al contorno, no el centroide
-r_objetivo = mf.determinar_contacto(imagen, "indice")
+    print("---------------------------------------------------------------------")
+    print("\tPosiciona el objeto (rojo). Luego, presiona enter.")
+    print("---------------------------------------------------------------------")
+    _ = input()
 
-print("\n\tPunto objetivo: {}".format(r_objetivo))
+    # =================
+    # Posición objetivo
+    imagen = mf.take_picture(camara)
+    r_objetivo = mf.determinar_contacto(imagen, "pulgar", 
+                                        offset_hor=15)
+    print("Posición objetivo: {}".format(r_objetivo))
+    print(r_objetivo)
 
-# --------------------------------------------------------------
-# Control
-# --------------------------------------------------------------
-ctrl = controlador.Controlador("pulgar",
-                                cantidad_motores, 
-                                tercer_servo_auto=False,
-                                yema_pulgar_visible=True,
-                                )
+    # ============================
+    # Primer movimiento de la mano
+    print("Calculando...")
 
-# Exploración inicial (pasos = cantidad_motores)
-ctrl.explorar(camara, mano)
+    # Hay contacto yema-objeto?
+    imagen = mf.take_picture(camara)
+    contacto, dist = mf.hay_contacto(imagen, "pulgar", 
+                                    kernel=[5,7])
 
-# Evaluar el estado
-estado = ctrl.evaluar_estado(r_objetivo)
-print("Estado: {}".format(estado))
+    if not(contacto or (dist < 7)):
+        ctrl.mover(r_objetivo, camara, mano)
 
-# Loop de cálculo de primitivas
-while not ctrl.flags["_alcanzado_"]: 
-    singular = ctrl.calcular_primitiva(r_objetivo, camara, mano)
-    estado = ctrl.evaluar_estado(r_objetivo)
-    print("Estado: {}".format(estado))
+        # OJO: la función mover del pulgar está pensado para 
+        # mover el dedo sólo una vez y desde la posición inicial 
+        # del dedo. Se asume que es suficiente, ya que su control 
+        # es más sencillo (sólo se estima un servo). Luego hay que 
+        # verificar si se alcanzó el objetivo (hay_contacto) y 
+        # entrar en control_fino de ser necesario (muy probable,
+        # ya que el objetivo de primer movimiento no es el objeto
+        # sino un punto cercano a su contorno.
 
-
-
-
-
-
-
-
-
+        ctrl.ajuste_fino(camara, mano)
 
 
+# Llamado a main()
+main(args)
+
+print("===========================")
+print("terminado")
+print("===========================")
 
 
 

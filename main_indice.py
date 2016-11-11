@@ -7,7 +7,7 @@ Script main para controlar el dedo ínidice con 2 o 3 motores
 # --------------------------------------------------------------
 import mis_funciones as mf
 # import numpy as np
-import controlador
+import controladores
 import argparse
 import cv2
 
@@ -37,7 +37,7 @@ print("\tConectando cámara...")
 camara = cv2.VideoCapture(1)
 
 print("\tConectando mano...")
-mano = mf.Mano(camara, yema_pulgar_visible=True)
+mano = mf.Mano(camara, pos_inicial_pulgar="arriba")
 
 print("\tListo!\n")
 print("---------------------------------------------------------------------")
@@ -58,7 +58,7 @@ print("\n\tPunto objetivo: {}".format(r_objetivo))
 # --------------------------------------------------------------
 # Control
 # --------------------------------------------------------------
-ctrl = controlador.Controlador("indice",
+ctrl = controladores.Ctrl_ERC("indice",
                                 cantidad_motores, 
                                 tercer_servo_auto=True,
                                 yema_pulgar_visible=True,
@@ -73,7 +73,20 @@ print("Estado: {}".format(estado))
 
 # Loop de cálculo de primitivas
 while not ctrl.flags["_alcanzado_"]: 
-    singular = ctrl.calcular_primitiva(r_objetivo, camara, mano)
+    # Ya no se necesita el flag de singular
+    _ = ctrl.calcular_primitiva(r_objetivo, camara, mano)
+
+    # Verificación de objetivo alcanzado por medio de hay_contacto
+    imagen = mf.take_picture(camara)
+    _, dist = mf.hay_contacto(imagen, "indice")
+
+    if dist < 30:
+        break
+
+    # Si no se pudo calcular la primitiva: explorar (paso = 1)
+    if ctrl.flags["_explorar_"]:
+        ctrl.explorar(camara, mano)
+
     estado = ctrl.evaluar_estado(r_objetivo)
     print("Estado: {}".format(estado))
 

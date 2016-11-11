@@ -1,9 +1,42 @@
 To do list:
 
 =====================================================================
+TODOS:
+
+    Ajuste fino: Al hacer ajuste fino (índice o pulgar) se podría 
+        esperar menos entre movimientos. Para eso habría que
+        cambiar la espera al final de la función de comunicación 
+        con los servos.
+=====================================================================
 *Crear main para dedo índice con la opción de controlar 2 o 3 servos.
 En caso de 2 servos, el tercero debiese calcularse para estar mirando 
 "hacia adentro":
+    
+    Modificar: Agregar una función de exploración exhaustiva que permita
+        generar una buena base de datos de primitivas. Habrá que usar
+        argumentos de línea de comando.
+
+    Modificar: La forma en que se calcula una nueva primitiva. Que se
+        considere una columna de 1's en las matrices de magnitudes
+        y diferencias.
+
+        OJO: Antes de hacer esto, hacer un pull al branch master con el
+            código más reciente!!.
+
+
+
+    OJO: Cuando limito a la primitiva en magnitud, estoy haciendo un
+        "reemplazo" de lo que era dividir la trayectoria en varias partes.
+        Se mantiene la magnitud de la primitiva acotada para que 
+        las predicciones (primitivas genereadas) sean "válidas".
+
+
+    Observaciones de comportamiento en versión más reciente:
+        Por problemas de iluminación, la yema no se ve de un color
+        parejo en la imagen, por lo que cuesta "más de lo normal"
+        determinar si hay contacto entre las yemas y el objeto.
+
+        Por supuesto, la mano se suicida :O
 
     Agregado (3/11/16): [main_indice.py]
         El tercer servo se calcula de forma automática
@@ -35,6 +68,20 @@ En caso de 2 servos, el tercero debiese calcularse para estar mirando
         El punto a objetivo ya no es el centroide del objeto, sino
         que un punto de su contorno (alineado con su centroide).
 
+    Modificación (9/11/2016): [main_indice.py] [mis_funciones.py]
+        Se agregó la posibilidad de explorar dentro del loop en que
+        se calculan las primitivas. El flag de yema pulgar visible
+        ahora es atributo de la mano. Al instanciar un objeto mano
+        se puede especificar la posición inical del pulgar. Si 
+        la yema es visible o no se maneja internamente en la clase mano
+        (se supone que la altura no va a cambiar).
+
+    Modificar: Al usar el controlador con tres motores (-m 3) este
+        no puede resolver la ponderación de primitivas debido a 
+        que el tercer servo está al límite al momento de explorar.
+        Así, una columna completa de la matriz de diferencias es 
+        cero.
+
 
     Modificar: Hacer el "determinar_contacto" más estable. 
         si un punto de contacto está en pixel 0,algo o fuea de la 
@@ -52,6 +99,24 @@ En caso de 2 servos, el tercero debiese calcularse para estar mirando
         por verde.
         ***
 
+    Modificar: El movimiento del dedo por primitivas calculadas
+        a veces es muy errático y se acerca mucho al objeto 
+        (incluso puede tocarlo y aplastarlo). Por esto, conviene
+        poder saltar desde el loop de generación de primitivas 
+        al ajuste fino (si es que la distancia entre contornos 
+        es relativamente pequeña). Así, si el dedo está cerca en 
+        la horizontal, pero lejos en la vertical, no se sigue con
+        el cálculo de primitivas, sino que se procede a "cerrar la 
+        mano".
+
+        Agregado (9/11/16): Dentro del loop de generación de primitivas
+        se revisa la distancia entre contornos. Si esa distancia es 
+        pequeña, esntonces se pasa al control de ajuste fino.
+
+
+    ================================================================
+            C O N T R O L    D E    A J U S T E    F I N O
+
     Modificar: Agregar un control de ajuste fino en que se mueva 
         el dedo de a poco y se evalúe cada vez si es que hay
         contacto entre las yemas y el objeto (or de máscaras de 
@@ -62,6 +127,17 @@ En caso de 2 servos, el tercero debiese calcularse para estar mirando
             a 7 pixeles) o en 1 grado en otro caso. Luego de determinar
             que hay contacto, se mueve 1 grado extra para tratar de 
             asegurar que efectivamente haya contacto objeto-yema.
+
+    Modificar: Control de ajuste fino sólo mueve el servo 1,
+        se puede agregar una compensación por parte del 
+        tercer servo para que quede mirando "hacia adentro".
+
+        Agregado (9/11/16): Hay compensación de ángulo por
+            parte del tercer servo, excepto en el último 
+            movimiento.
+
+    ================================================================
+
 
     Modificar: Si un servo está al límite (servo 2) y la primitiva
         calculada no se puede ejecutar, entonces se debe usar otro
@@ -95,10 +171,16 @@ En caso de 2 servos, el tercero debiese calcularse para estar mirando
         Así, se suprime la espera para alguno de los movimientos (el 
         primero que se haga).
 
+        ***
+            No es necesario!: Basta con llamar a la función mover() después
+            de haber ajustado todos los dedos!
+        ***
+
     IDEA: Como el pulgar tiene el primer servo fijo (determina la altura),
         entonces sólo hay que controlar 2 servos. Para eso se puede
         usar el mismo algoritmo de dos servos que se esstá usando
         con el dedo índice...pero también de puede hacer esto:
+
         (1) El servo 2 se controla únicamente a partir de la distancia
         mínima entre contornos (la distancia que entrega la función
         "hay contacto").
@@ -109,6 +191,91 @@ En caso de 2 servos, el tercero debiese calcularse para estar mirando
     ACTUALIZACIÓN: Modificar la clase controlador para agregar al pulgar
         es horrible, asi que conviene hacer algo distinto y más 
         simple para el pulgar. EJ: sólo ajuste "fino".
+
+    Modificación (9/11/16): Controlador básico para el pulgar agregado. Se basa
+        en primitivas, pero sólo se interesa por llegar a la coordenada
+        horizontal del punto objetivo. Para determinar que primitiva usar
+        usa el criterio de "la más cercana", sin embargo esto no es muy 
+        útil, ya que por la forma en que se está explorando, siempre resulta
+        ser la misma primitiva, la primera. 
+
+        *Este código será guardado en una de las branches de GitHub (antes 
+        de hacer más modificaciones)
+
+    Modificar: Que la exploración consista en moverse sólo 10 grados a la vez
+        y siempre desde el mismo punto de partida (dedo estirado). 
+        La determinación de la primitiva a usar para la estimación 
+        de la nueva "actuación" conviene hacerla respecto de la distancia
+        entre el punto objetivo y el punto final logrado con cada primitiva
+        al entrenar (usando 1 o 2 dimensiones para la distancia..?).
+        Así, va a quedar parecido a lo que sería un mapeo simple...
+
+        Agregado (10/11/16): La exploración ahora es una exploración
+            exhaustiva, en la cual se generan todas las primitivas que voy
+            a necesitar para calcular el movimiento deseado. La primitiva
+            a ejecutar se calcula a partir de la distancia entre el punto
+            objetivo y el punto final alcanzado con la primitiva.
+
+    Modificar: Añadir progress bar o similar a la exploración exhaustiva.
+        Además, hay que guardar las primitivas generadas para después
+        poder cargarlas en vez de explorar nuevamente. 
+        (OJO: si se mueve la cámara, las primitivas cargadas podrían 
+        no ser útiles para el control de la mano).
+
+        Agregado (10/11/16): En [mis_funciones.py] agregué una función
+            para cargar datos. Esta se usa en [main_pulgar.py] si es que
+            el "switch" (argumento de linea de comando) lo indica.
+
+    Modificar: Cambiar el nombre con el que se están guardando los datos,
+        actualmente usan la fecha completa, pero es un nombre muy largo y
+        es tedioso usarlo como argumento de línea de comando.
+        IDEA: Usar un formato como este:
+            datos_dedo_1
+            datos_dedo_2
+            etc...
+        Además, la fecha de creación/modificación de cada archivo
+        queda registrada en el pc. Habrá que revisar si el nombre
+        existe antes de guardar (para evitar sobreescribir archivos).
+
+        Agregado (11/11/16): Por defecto, los datos se guardan con 
+            "numeración" al final del nombre. Opcionalmente, 
+            se puede usar la fecha.
+
+
+    OBS y MODIFICAR: Luego de unas pruebas con el script de prubea de 
+        hay_contacto ([1_control_fino_vision]) queda claro que la dificultad
+        de identificar la yema completa (del pulgar) impide definir 
+        criterios claros que determinen si hay contacto objeto-yema.
+        En este momento (11/10/16) se me ocurren 2 posibles soluciones:
+
+        (1) Mejorar las condiciones de luz (encender luces en el lab, o,
+            mejor aún, agregar leds (verde o blanco) cerca de la yema).
+
+        (2) Redefinir los límites (inferiores) de lo que se debe considerar
+            como verde de la yema (componentes SV de la imagen HSV).
+
+
+    Modificar: En definitiva, para el control del dedo pulgar consideraré
+        sólo el uso del segundo servo. El tercero sólo compensará
+        para que la yema quede apuntando "hacia adentro".
+
+        La magnitud de variación para el segundo servo se puede 
+        cacular así:
+    
+        - Obtener posición inicial
+        - Mover el servo para que se "cierre" (aleatorio a prdefinido)
+        - Obtener posición final y calcula el desplazamiento en la imagen.
+        - La variación horizontal se usará para determinar cuanto mover el
+            servo. La vertical se usará para determinar si el objeto es 
+            alcanzable o no.
+        - Una vez cerca del objeto (punto de agarre *lejano alcanzado
+            o distancia entre contornos es pequeña), se puede hacer un ajuste
+            fino idéntico a lo que se hace con el dedo índice.
+
+        Agregado: funciona como está descrito aquí, es similar 
+            al calculo de primitivas del índice, pero es mucho más sencillo.
+            Es una interpolación lineal entre muestras (posiciones inicial y 
+            final de cada primitiva).
 
 =====================================================================
 *Crear main para dedo anular con la opción de controlar 2 o 3 servos:
@@ -135,4 +302,8 @@ Eliminar aleatoriedad en ese caso?
         número de pasos de exploración equivale a la cantidad de 
         motores a controlar. En otro caso, sólo se mueve el primer 
         servo (el más cercano a la palma).
+
+=====================================================================
+=====================================================================
+=====================================================================
 

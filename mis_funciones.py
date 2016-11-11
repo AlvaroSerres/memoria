@@ -1,6 +1,7 @@
 # Este modulo contiene funciones útilizadas para 
 # el control visual de la mano de tres dedos
 import numpy as np
+import pathlib
 import datetime
 import serial
 import time
@@ -152,7 +153,7 @@ def draw_circle(image, centroid, color="green", radius=5):
     return done
 
 
-def determinar_contacto(imagen, dedo, offset_hor=25):
+def determinar_contacto(imagen, dedo, offset_hor=20):
     """Encuentra el punto de contacto izquierdo o derecho
     para agarrar el objeto (según lo que se pueda ver con la 
     cámara)"""
@@ -199,22 +200,41 @@ def determinar_contacto(imagen, dedo, offset_hor=25):
     return punto_agarre
 
 
-def guardar_datos(nombre, datos):
+def guardar_datos(nombre, datos, method="numerado"):
     """Guarda los datos en formato json""" 
-    today = datetime.datetime.today()
-    tt = today.timetuple()
     # Directorio en donde guardar
     directory = "datos_guardados/"
     # Primera parte del nombre
     filename_1 = "datos_"
-    # Tercera parte del nombre (fecha)
-    # Formato de fecha es yyyymmdd_hhmmss
-    filename_3 = "_{:4d}{:02d}{:02d}_{:02d}{:02d}{:02d}"
-    filename_3 = filename_3.format(tt.tm_year, tt.tm_mon, tt.tm_mday,
-                            tt.tm_hour, tt.tm_min, tt.tm_sec)
+    nombre += "_"
+    
+    if method == "fecha":
+        # Tercera parte del nombre (fecha)
+        today = datetime.datetime.today()
+        tt = today.timetuple()
 
-    # Nombre completo
-    filename = directory + filename_1 + nombre + filename_3
+        # Formato de fecha es yyyymmdd_hhmmss
+        filename_3 = "{:4d}{:02d}{:02d}_{:02d}{:02d}{:02d}"
+        filename_3 = filename_3.format(tt.tm_year, tt.tm_mon, tt.tm_mday,
+                                tt.tm_hour, tt.tm_min, tt.tm_sec)
+
+        # Nombre completo
+        filename = directory + filename_1 + nombre + filename_3
+
+    elif method == "numerado":
+        p = pathlib.Path("./datos_guardados")
+        archivos = []
+
+        for f in p.iterdir():
+            archivos.append(str(f))
+            
+        numero = 0
+        while True:
+            # Nombre temporal
+            filename = directory + filename_1 + nombre + str(numero)
+            
+            if filename in archivos: numero += 1
+            else:  break
 
     # Escritura de datos (módulo json)
     with open(filename, "w") as file_object:
@@ -227,6 +247,43 @@ def guardar_datos(nombre, datos):
     print("---------------------------------------")
 
 
+def cargar_datos(nombre, extension):
+    """Para cargar las primitivas guardadas anteriormente
+        (directorio 'datos_guardados')"""
+    # Directorio donde buscar datos
+    directory = "datos_guardados/"
+    # Primera parte del nombre
+    filename_1 = "datos_"
+    # Segunda parte del nombre
+    filename_2 = nombre + "_"
+    # Tercera parte del nombre (fecha)
+    filename_3 = extension
+
+    # Nombre completo
+    filename = directory + filename_1 + filename_2  +  filename_3
+
+    print("---------------------------------------")
+    print("Cargando datos desde:")
+    print(filename)
+    print("---------------------------------------")
+    # Lectura de datos (módulo json)
+    try:
+        with open(filename) as file_object:
+            datos = json.load(file_object)
+
+    except ValueError:
+        print("[ERROR] No hay datos que cargar...")
+        print("---------------------------------------")
+        return None 
+
+    else:
+        print("Datos cargados...")
+        print("---------------------------------------")
+
+        # Retorna los datos leídos
+        return datos
+
+        
 def primitivas_np2list(primitivas):
     """Convierte los arreglos numpy a lista para poder
     ser guardados en formato JSON"""
@@ -244,7 +301,7 @@ def primitivas_np2list(primitivas):
     return primitivas
 
 
-def hay_contacto(imagen, dedo):
+def hay_contacto(imagen, dedo, kernel=[3, 5]):
     """Determina si hay contacto entre el objeto (rojo) y el 
     dedo especificado. La imagen de entrada es BGR. 
     Retorna un booleano y la distancia mínima entre 
@@ -289,7 +346,7 @@ def hay_contacto(imagen, dedo):
         area_verde = cv2.contourArea(cnt_verde[0])
     
     else:
-        print("[ERROR] 'hay_contacto' no está implementada para el dedo anular")
+        print("[ERROR] 'hay_contacto' aún no está implementada para el dedo anular")
 
     # print("[DEBUG] Area verde: {}".format(area_verde))
 
@@ -312,7 +369,7 @@ def hay_contacto(imagen, dedo):
         mascara = cv2.bitwise_or(mascara_rojo, yema_pulgar)
         
     # Operación morfológica "closing": juntar la yema con el objeto
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 5))
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, tuple(kernel))
     mascara = cv2.morphologyEx(mascara, cv2.MORPH_CLOSE, kernel)
 
     # Se quiere encontrar un solo gran contorno cuya área se aprox igual
@@ -343,7 +400,7 @@ def hay_contacto(imagen, dedo):
     contacto = None
 
     # Condición de puntos más cercanos
-    if dist_minima < 3:
+    if dist_minima < 3.3:
         contacto = True
         return contacto, dist_minima
 
@@ -377,14 +434,26 @@ class Mano():
             camara,
             puerto ='/dev/ttyUSB0',
             # Para que el pulgar quede hacia arriba
-            yema_pulgar_visible=False,
+            pos_inicial_pulgar="arriba",
             ):
         """Inicialización de la mano (atributos)"""
-               
+            
+        if pos_inicial_pulgar == "arriba" or pos_inicial_pulgar == "medio":
+            self.yema_pulgar_visible=True
+
+        else:
+            self.yema_pulgar_visible=False
+
+
         # Posiciones iniciales   
-        if yema_pulgar_visible:
+        if pos_inicial_pulgar == "arriba":
             # Pulgar hacia arriba (yema visible)
             self.pulgar_pos = np.array([1600, 212, 512])
+        
+        elif pos_inicial_pulgar == "medio":
+            # Pulgar en posición media (yema visible)
+            self.pulgar_pos = np.array([1850, 212, 512])
+       
         else:
             # Pulgar hacia abajo (yema no visible)
             self.pulgar_pos = np.array([2350, 212, 212])
@@ -488,12 +557,11 @@ class Mano():
         return limitado, limitados_sup, limitados_inf
 
 
-    def actualizar_yema(self, camara, dedo, 
-            yema_pulgar_visible=False):
+    def actualizar_yema(self, camara, dedo):
         """Actualiza la información de posición de cada yema"""
 
         if dedo == "indice":
-            if yema_pulgar_visible:
+            if self.yema_pulgar_visible:
                 # Toma una foto/filtra por color/centroide (imagen completa)
                 picture = take_picture(camara)
                 filtrada = color_filter(picture, "green")

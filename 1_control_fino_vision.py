@@ -120,7 +120,16 @@ cv2.imshow("Mascara General", mascara)
 cv2.waitKey(0)
 
 # Operación morfológica "closing" juntar la yema con el objeto
-kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 5))
+# Kernel de tamaño [3, 5] parece funcionar bien para la yema del 
+# dedo índice. Sin embargo, para el dedo pulgar conviene usar
+# un kernel más grande debido a las condiciones de luz (natural)
+
+if dedo == "indice":
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 5))
+
+elif dedo == "pulgar":
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 7))
+
 mascara = cv2.morphologyEx(mascara, cv2.MORPH_CLOSE, kernel)
 
 # Se quiere encontrar un solo gran contorno cuya área se aprox igual
@@ -153,11 +162,19 @@ cnt_verde_izq = cnt_verde_izq[0]
 cnt_verde_der = cnt_verde_der[0]
 dist_minima = float("inf")
 
-for punto_1 in cnt_rojo:
-    for punto_2 in cnt_verde_der:
-        dist = np.linalg.norm(punto_1 - punto_2)
-        if dist < dist_minima:
-            dist_minima = dist
+if dedo == "indice":
+    for punto_1 in cnt_rojo:
+        for punto_2 in cnt_verde_der:
+            dist = np.linalg.norm(punto_1 - punto_2)
+            if dist < dist_minima:
+                dist_minima = dist
+
+elif dedo == "pulgar":
+    for punto_1 in cnt_rojo:
+        for punto_2 in cnt_verde_izq:
+            dist = np.linalg.norm(punto_1 - punto_2)
+            if dist < dist_minima:
+                dist_minima = dist
 
 print("[DEBUG] Distancia mínima: {}".format(dist_minima))
 

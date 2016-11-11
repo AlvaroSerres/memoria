@@ -1,11 +1,26 @@
-# Aquí estará la clase controlador (EnRoCo)
+"""
+Este script contiene los siguientes controladores 
+(pensados para la mano de 3 dedos del lab)
 
-import numpy as np
+- Ctrl_ERC: Controlador principal, basado en el paper de EnRoCo.
+    Uso: dedo índice y/o anular.
+
+- Ctrl_Pulgar: Controlador en construcción, estructura "similar"
+        al controlador Ctrl_ERC.
+    Uso: dedo pulgar.
+
+"""
+# Importación de módulos
 import mis_funciones as mf
+import numpy as np
+import time
 
 
-class Controlador():
-    """Modelado de controlador basado en EnRoCo"""
+# CLASE 1
+
+class Ctrl_ERC():
+    """Modelado de controlador basado en EnRoCo. Para usarse
+        con dedo índice y/o anular."""
 
     def __init__(self,
             dedo="indice", 
@@ -101,27 +116,17 @@ class Controlador():
         else: 
             pasos = 1
 
-        # [PULGAR]
-        # Pulgar, genera una primitiva, pero con el servo 2
-        if self.dedo == "pulgar":
-            pasos += pasos
-
         # Matriz identidad (una fila, una primitiva)
         identidad = np.identity(pasos, dtype="int64")
         # Generación de cada primitiva
         for paso in range(0, pasos):
-            # [PULGAR]
-            # Para el pulgar: no mover servo 1
-            if self.dedo=="pulgar" and paso==0:
-                continue
 
             print("\t-> generando primitiva")
             # temp: temporal, nueva primitiva de exploración
             temp = {}
             temp["exploracion"] = True
             # Obtener posición yema
-            ri = mano.actualizar_yema(camara, self.dedo,
-                                    self.yema_pulgar_visible)
+            ri = mano.actualizar_yema(camara, self.dedo)
 
             # La posición inicial de esta primitiva
             temp["pos_inicial"] = ri
@@ -167,7 +172,7 @@ class Controlador():
                 segundo_servo = -(segundo_servo*self.m_n2a_s2 + self.n_n2a)
 
                 # Servo 3 en ángulo y luego a codificado
-                tercer_servo = 180 - (primer_servo + segundo_servo)
+                tercer_servo = 170 - (primer_servo + segundo_servo)
                 tercer_servo = (150 - tercer_servo)/self.m_n2a_s2
                 
                 # Agregando el ángulo ajustado del servo 3
@@ -180,8 +185,7 @@ class Controlador():
             mano.mover()
     
             # Obtener posición yema
-            rf = mano.actualizar_yema(camara, self.dedo,
-                                    self.yema_pulgar_visible)
+            rf = mano.actualizar_yema(camara, self.dedo)
 
             temp["pos_final"] = rf
             # Diferencia (movimiento yema en la imagen)
@@ -205,8 +209,7 @@ class Controlador():
         # primitivas creadas
 
         # Obtener posición yema
-        r = mano.actualizar_yema(camara, self.dedo,
-                                    self.yema_pulgar_visible)
+        r = mano.actualizar_yema(camara, self.dedo)
 
         # Copia de la lista de primitivas
         primitivas = self.primitivas[:]
@@ -233,13 +236,7 @@ class Controlador():
         magnitudes = np.zeros([dim, dim])
         diferencias = np.zeros([2, dim])
         for i in range(0, dim):
-            # [PULGAR]
-            if self.dedo == "pulgar":
-                temp = primitivas[indices_sort[i]]["magnitud"][1]
-
-            else:
-                temp = primitivas[indices_sort[i]]["magnitud"]
-
+            temp = primitivas[indices_sort[i]]["magnitud"]
             # print("[DEBUG] Temp magnitud: {}".format(temp))
             magnitudes[:, i] = np.reshape(temp, (1, dim))
             # print("[DEBUG] Magnitudes: {}".format(magnitudes))
@@ -344,8 +341,8 @@ class Controlador():
                 b1 = param_limitacion*(b1/norma_b1)
                 b1 = b1.astype("int64")
 
-            print("[DEBUG] dedo_pos: {}".format(dedo_pos))
-            print("[DEBUG] b1: {}".format(b1))
+            # print("[DEBUG] dedo_pos: {}".format(dedo_pos))
+            # print("[DEBUG] b1: {}".format(b1))
 
             # ===============================================
             # Manejo de servos limitados
@@ -353,66 +350,56 @@ class Controlador():
             # Si es que el servo está limitado y se quiere
             # seguir moviendo...
             # Si el primer servo está al límite (inferior)
+            if dedo_pos[0]==self.limites[0, 0] and b1[0]<0:
+                # El otro servo se puede mover y lo iba a 
+                # hacer en la misma dirección?
+                if dedo_pos[1]!=self.limites[0, 1] and b1[1]<0: 
+                    if abs(b1[0])>abs(b1[1]):
+                        b1[1] = b1[0]
+                        b1[0] = 0
+                    else:
+                        b1[0] = 0
+                        # b1[1] se mantiene
 
-            # [PULGAR]
-            if self.dedo != "pulgar":
+            # Si el primer servo está al límite (superior)
+            if dedo_pos[0]==self.limites[1, 0] and b1[0]>0:
+                # El otro servo se puede mover y lo iba a 
+                # hacer en la misma dirección?
+                if dedo_pos[1]!=self.limites[1, 1] and b1[1]>0: 
+                    if b1[0]>b1[1]:
+                        b1[1] = b1[0]
+                        b1[0] = 0
+                    else:
+                        b1[0] = 0
+                        # b1[1] se mantiene
 
-                if dedo_pos[0]==self.limites[0, 0] and b1[0]<0:
-                    # El otro servo se puede mover y lo iba a 
-                    # hacer en la misma dirección?
-                    if dedo_pos[1]!=self.limites[0, 1] and b1[1]<0: 
-                        if abs(b1[0])>abs(b1[1]):
-                            b1[1] = b1[0]
-                            b1[0] = 0
-                        else:
-                            b1[0] = 0
-                            # b1[1] se mantiene
+            # Si el segundo servo está al límite (inferior)
+            if dedo_pos[1]==self.limites[0, 1] and b1[1]<0:
+                # El otro servo se puede mover y lo iba a 
+                # hacer en la misma dirección?
+                if dedo_pos[0]!=self.limites[0, 0] and b1[0]<0: 
+                    if abs(b1[0])<abs(b1[1]):
+                        b1[0] = b1[1]
+                        b1[1] = 0
+                    else:
+                        b1[1] = 0
+                        # b1[1] se mantiene
 
-                # Si el primer servo está al límite (superior)
-                if dedo_pos[0]==self.limites[1, 0] and b1[0]>0:
-                    # El otro servo se puede mover y lo iba a 
-                    # hacer en la misma dirección?
-                    if dedo_pos[1]!=self.limites[1, 1] and b1[1]>0: 
-                        if b1[0]>b1[1]:
-                            b1[1] = b1[0]
-                            b1[0] = 0
-                        else:
-                            b1[0] = 0
-                            # b1[1] se mantiene
-
-                # Si el segundo servo está al límite (inferior)
-                if dedo_pos[1]==self.limites[0, 1] and b1[1]<0:
-                    # El otro servo se puede mover y lo iba a 
-                    # hacer en la misma dirección?
-                    if dedo_pos[0]!=self.limites[0, 0] and b1[0]<0: 
-                        if abs(b1[0])<abs(b1[1]):
-                            b1[0] = b1[1]
-                            b1[1] = 0
-                        else:
-                            b1[1] = 0
-                            # b1[1] se mantiene
-
-                # Si el segundo servo está al límite (superior)
-                if dedo_pos[1]==self.limites[1, 1] and b1[1]>0:
-                    # El otro servo se puede mover y lo iba a 
-                    # hacer en la misma dirección?
-                    if dedo_pos[0]!=self.limites[1, 0] and b1[0]>0: 
-                        if b1[0]<b1[1]:
-                            b1[0] = b1[1]
-                            b1[1] = 0
-                        else:
-                            b1[1] = 0
-                            # b1[1] se mantiene
+            # Si el segundo servo está al límite (superior)
+            if dedo_pos[1]==self.limites[1, 1] and b1[1]>0:
+                # El otro servo se puede mover y lo iba a 
+                # hacer en la misma dirección?
+                if dedo_pos[0]!=self.limites[1, 0] and b1[0]>0: 
+                    if b1[0]<b1[1]:
+                        b1[0] = b1[1]
+                        b1[1] = 0
+                    else:
+                        b1[1] = 0
+                        # b1[1] se mantiene
 
             # ===============================================
 
-            # [PULGAR]
-            if self.dedo == "pulgar" and self.cantidad_motores == 1:
-                dedo_pos[1] += b1
-                flag_b1_dim_2 = False
-
-            else:
-                dedo_pos += b1
+            dedo_pos += b1
 
             # Se comienza a crear una nueva primitiva (diccionario)
             nueva_primitiva = {}
@@ -440,7 +427,7 @@ class Controlador():
                 segundo_servo = -(segundo_servo*self.m_n2a_s2 + self.n_n2a)
 
                 # Servo 3 en ángulo y luego a codificado
-                tercer_servo = 180 - (primer_servo + segundo_servo)
+                tercer_servo = 170 - (primer_servo + segundo_servo)
                 tercer_servo = (150 - tercer_servo)/self.m_n2a_s2
                 
                 # Agregando el ángulo ajustado del servo 3
@@ -454,8 +441,7 @@ class Controlador():
             mano.mover()
 
             # Obtener posición yema (posición final)
-            rf = mano.actualizar_yema(camara, self.dedo,
-                                    self.yema_pulgar_visible)
+            rf = mano.actualizar_yema(camara, self.dedo)
 
             nueva_primitiva["pos_final"] = rf
 
@@ -539,8 +525,6 @@ class Controlador():
         alcanzado el objetivo (en primera instancia). Esta
         función asegura el contacto entre yema y objeto."""
         # Caso índice: sólo mover servo 1, cerrándose (restando)
-        # Caso pulgar: sólo mover servo 2, cerrándose (restando)
-
 
         while True:
             # Hay contacto yema-objeto?
@@ -562,12 +546,22 @@ class Controlador():
 
             print("[DEBUG] {} grados más...".format(grados))
 
-            magnitud = -grados/self.m_n2a_s1
+            # Posición actual del dedo
             dedo_pos = mano.entregar_dedo_pos(self.dedo) 
+
+            # Actualización servo 1
+            magnitud = -grados/self.m_n2a_s1
             dedo_pos[0] += int(magnitud)
+
+            # Compensación tercer servo
+            magnitud = grados/self.m_n2a_s2
+            dedo_pos[2] += int(magnitud)
+            
+            # Ajuste y movimiento
             _, _, _ = mano.ajustar_dedo(self.dedo, dedo_pos)
             mano.mover()
 
+        # Un último movimiento (de 1°)
         magnitud = -1/self.m_n2a_s1
         dedo_pos = mano.entregar_dedo_pos(self.dedo) 
         dedo_pos[0] += int(magnitud)
@@ -580,6 +574,204 @@ class Controlador():
         anteriormente."""
         # Hacer esta función xD
 
+
+# CLASE 2
+
+
+class Ctrl_Pulgar():
+    """Un controlador simple para el dedo pulgar"""
+
+    def __init__(self, primitivas=None):
+        """Inicialización del controlador."""
+        
+        # La lista de primitivas
+        if primitivas != None:
+            self.primitivas = primitivas
+
+        else:
+            self.primitivas = []
+
+        # Conversión de grados a ángulo (válido para servos "ax")
+        self.m_n2a = 300/1024
+        self.n_n2a = -150
+
+
+    def explorar_ex(self, camara, mano):
+        """Mueve el dedo y guarda información sobre el cambio
+            producido en la imagen."""
+        # Exploración "Exhaustiva"
+        # Donde estaba el dedo, antes de comenzar
+        dedo_inicial = mano.entregar_dedo_pos("pulgar").copy()
+
+        # Mueve el servo, haciendo que se cierre, siempre desde la
+        # posición inicial.
+        # ~90°: pos inicial
+        # 80°: primer movimiento
+        # 70°: segundo movimiento
+        # etc...
+        angulos = list(range(0, 81, 10))
+        angulos.reverse()
+        for angulo in angulos:
+            # "Primitiva" temporal:
+            temp = {}
+
+            # Pos_inicial de la yema en la imagen
+            ri = mano.actualizar_yema(camara, "pulgar")
+            temp["pos_inicial"] = ri
+
+            # Posición actual del dedo
+            dedo_pos = mano.entregar_dedo_pos("pulgar").copy()
+
+            # Hay que considerar la altura del dedo (servo 1)
+            temp["servo_1"] = dedo_pos[0].tolist()
+
+            # El segundo servo se ajusta para el ángulo dado
+            segundo_servo = int((150 - angulo)/self.m_n2a)
+
+            # Magnitud de la primitiva/ajuste del servo
+            temp["magnitud"] = segundo_servo - dedo_pos[1]
+
+            dedo_pos[1] = segundo_servo
+            _ = mano.ajustar_dedo("pulgar", dedo_pos)
+
+            #============================================
+            # Ajuste automático del tercer servo
+            # Ángulos de servos 2  y 3 (0~360°)
+            servo_2_ang = -(dedo_pos[1]*self.m_n2a + self.n_n2a)
+            servo_3_ang = 90 - servo_2_ang 
+            
+            # Ángulo servo 3 (codificado)
+            servo_3_cod = (150 - servo_3_ang)/self.m_n2a
+            dedo_pos[2] = servo_3_cod
+            _ = mano.ajustar_dedo("pulgar", dedo_pos)
+            #============================================
+
+            mano.mover()
+            time.sleep(1)
+
+            # Pos_final de la yema en la imagen
+            rf = mano.actualizar_yema(camara, "pulgar")
+            temp["pos_final"] = rf
+            temp["diferencia"] = rf - ri
+
+            # Guardar la información generada
+            self.primitivas.append(temp)
+
+            # Borrar evita que se sobreescriban las primitivas
+            del temp
+
+            # Para terminar, devolver el dedo a donde estaba
+            _ = mano.ajustar_dedo("pulgar", dedo_inicial)
+            mano.mover()
+            time.sleep(1)
+
+        # DEBUG
+        print(" ")
+        print(self.primitivas)
+        print(" ")
+
+
+    def mover(self, punto_objetivo, camara, mano):
+        """Mueve el dedo al punto especificado. Consiste de un 
+            solo movimiento. Luego se debe llamar a "ajuste_fino"."""
+        
+        # Posición actual de la yema en la imagen
+        ri = mano.actualizar_yema(camara, "pulgar")
+
+        # Buscar la primitiva más cercana 
+        primitivas = self.primitivas[:]
+        
+        # Distancias entre primitivas (pos_final) y punto objetivo
+        distancias = []
+        
+        for primitiva in primitivas:
+            dist = np.linalg.norm(np.array(primitiva["pos_final"]) - np.array(punto_objetivo))
+            distancias.append(dist)
+
+        # Indices que ordenan en función de la más cercana
+        indices_sort = np.argsort(distancias)
+
+        # La primitiva más cercana y el cambio que produjo en imagen
+        primitiva = primitivas[indices_sort[0]]
+        delta_primitiva = primitiva["diferencia"][0]
+
+        # El cambio que quiero producir en la imagen (horizontal)
+        delta_buscado = punto_objetivo[0] - ri[0]
+
+        # Ponderador x
+        x = delta_buscado/delta_primitiva
+
+        # Ponderación de la magnitud de la primitiva
+        magnitud = x * primitiva["magnitud"]
+
+        # Movimiento...
+        dedo_pos = mano.entregar_dedo_pos("pulgar")
+        dedo_pos[1] += magnitud
+            
+        #============================================
+        # Ajuste automático del tercer servo
+        # Ángulos de servos 2  y 3 (0~360°)
+        servo_2_ang = -(dedo_pos[1]*self.m_n2a + self.n_n2a)
+        servo_3_ang = 90 - servo_2_ang 
+        
+        # Ángulo servo 3 (codificado)
+        servo_3_cod = (150 - servo_3_ang)/self.m_n2a
+        dedo_pos[2] = servo_3_cod
+        _ = mano.ajustar_dedo("pulgar", dedo_pos)
+        #============================================
+
+        mano.mover()
+
+
+    def evaluar_estado(self):
+        """Evalúa si el movimiento realizado cumplió con su objetivo
+            o si se necesita seguir moviendo"""
+        pass
+
+
+    def ajuste_fino(self, camara, mano):
+        """Mueve el segundo servo del dedo en saltos de 1 o 3 grados
+            hasta que haya contacto entre la yema y el objeto."""
+        # Caso pulgar: sólo mover servo 2, cerrándose (sumando)
+
+        while True:
+            # Hay contacto yema-objeto?
+            imagen = mf.take_picture(camara)
+            contacto, dist = mf.hay_contacto(imagen, "pulgar", 
+                                            kernel=[5,7])
+
+            # Si se alcanza el objetivo, termina
+            if contacto or (dist < 7):
+                print("Objetivo alcanzado por dedo pulgar")
+                break
+
+            else:
+                # Un aumento de x grados se logra con -x/m 
+                grados = 1
+
+            print("[DEBUG] {} grados más...".format(grados))
+
+            # Posición actual del dedo
+            dedo_pos = mano.entregar_dedo_pos("pulgar") 
+
+            # Actualización servo 2
+            magnitud = grados/self.m_n2a
+            dedo_pos[1] += int(magnitud)
+
+            # Compensación servo 3
+            magnitud = -grados/self.m_n2a
+            dedo_pos[2] += int(magnitud)
+            
+            # Ajuste y movimiento
+            _, _, _ = mano.ajustar_dedo("pulgar", dedo_pos)
+            mano.mover()
+
+        # Un último movimiento (de 1°)
+        magnitud = 1/self.m_n2a
+        dedo_pos = mano.entregar_dedo_pos("pulgar") 
+        dedo_pos[1] += int(magnitud)
+        _, _, _ = mano.ajustar_dedo("pulgar", dedo_pos)
+        mano.mover()
 
 
 
