@@ -15,8 +15,12 @@ import cv2
 # ================================================
 # Manejo de argumentos por línea de comando (shell)
 ap = argparse.ArgumentParser()
-ap.add_argument("-g", "--guardar", required=False, action="store_true",
+ap.add_argument("-e", "--explorar", required=False, action="store_true",
         help="Sólo explorar y guardar primitivas.")
+
+ap.add_argument("-g", "--guardar", required=False, action="store_true",
+        help="Controlar dedo y guardar primitivas.")
+
 ap.add_argument("-c", "--cargar", required=False,
         help="Extensión (número) del archivo de datos a cargar")
 
@@ -25,7 +29,8 @@ args = ap.parse_args()
 def main(args):
     print("Iniciando...")
     # Argumentos
-    guardar = args.guardar
+    guardar_ex = args.explorar
+    guardar= args.guardar
     extension = args.cargar
 
     # =================================================
@@ -34,7 +39,7 @@ def main(args):
     mano = mf.Mano(camara)
     ctrl = controladores.Ctrl_Pulgar()
 
-    if guardar:
+    if guardar_ex:
         # Comienzo de la exploración exhaustiva
         print("Exploración exhaustiva...")
         ctrl.explorar_ex(camara, mano)
@@ -51,6 +56,7 @@ def main(args):
         return
     else:
         ctrl.primitivas = datos
+        primitivas_base = len(datos)
 
     print("---------------------------------------------------------------------")
     print("\tPosiciona el objeto (rojo). Luego, presiona enter.")
@@ -88,6 +94,24 @@ def main(args):
 
         ctrl.ajuste_fino(camara, mano)
 
+    if guardar:
+        print("[DEBUG] Primitivas:\n")
+        print(ctrl.primitivas)
+
+        primitivas_trayectoria = ctrl.primitivas[primitivas_base:]
+        primitivas_trayectoria = mf.primitivas_np2list(primitivas_trayectoria)
+
+        # OJO: Las magnitudes, diferencias y posiciones se están
+        # guardando como listas en lugar de numpy arrays.
+        datos = {"dedo": "pulgar",
+                "r_objetivo": [int(r_objetivo[0]),int(r_objetivo[1])],
+                "primitivas": primitivas_trayectoria,
+                }
+
+        mf.guardar_datos(nombre="pulgar", 
+                      datos=datos,
+                      directory="trayectorias_1_dedo/",
+                      )
 
 # Llamado a main()
 main(args)

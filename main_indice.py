@@ -58,11 +58,10 @@ print("\n\tPunto objetivo: {}".format(r_objetivo))
 # --------------------------------------------------------------
 # Control
 # --------------------------------------------------------------
-ctrl = controladores.Ctrl_ERC("indice",
-                                cantidad_motores, 
-                                tercer_servo_auto=True,
-                                yema_pulgar_visible=True,
-                                )
+ctrl = controladores.Ctrl_ERC(dedo="indice",
+                            cantidad_motores=cantidad_motores,
+                            tercer_servo_auto=True,
+                            )
 
 # Exploración inicial (pasos = cantidad_motores)
 ctrl.explorar(camara, mano)

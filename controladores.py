@@ -26,8 +26,6 @@ class Ctrl_ERC():
             dedo="indice", 
             cantidad_motores=2,
             tercer_servo_auto=False,
-            # Si se ven dos verdes, hay que dividir la imagen
-            yema_pulgar_visible=False,
             ):
         """Inicialización del controlador"""
         # Para 2 o 3 motores por dedo
@@ -37,9 +35,6 @@ class Ctrl_ERC():
             # print("[ERROR] Implementación para 2 o 3 motores!")
             # print("------------------------------------------")
             # print(" ")
-
-        # Yema del pulgar visible <=> el pulgar está hacia arriba
-        self.yema_pulgar_visible = yema_pulgar_visible
 
         # Tercer servo automático (apunta siempre a la misma dirección)
         if cantidad_motores == 3:
@@ -104,6 +99,145 @@ class Ctrl_ERC():
             self.primer_servo = "ax"
 
 
+    def explorar_ex(self, camara, mano):
+        """Exploración exhaustiva para generar 'base de datos'
+            de 31 primitivas."""
+        # Exploración "Exhaustiva"
+
+        # [0, 10, 20, 30, 40]
+        angulos_s1 = list(range(0, 41, 10))
+        # [0, 30, 60, 90]
+        angulos_s2 = list(range(0, 91, 30))
+
+        # ==========================================================
+        # Primera parte: Moviendo servo 1
+
+        for angulo_s2 in angulos_s2:
+            # El segundo servo se ajusta para el ángulo dado,
+            # el primero a 0° y el tercero es automático
+            primer_servo = int((150 - 0)/self.m_n2a_s1)
+            segundo_servo = int((150 - angulo_s2)/self.m_n2a_s2)
+            limitado = mano.ajustar_dedo(self.dedo, 
+                                      [primer_servo, segundo_servo, 0])
+            mano.calcular_servo_3(self.dedo) 
+            mano.mover()
+            # 1 segundo extra de espera
+            time.sleep(1)
+        
+            for angulo_s1 in angulos_s1:
+                # "Primitiva" temporal:
+                temp = {}
+                temp["exploracion"] = True
+
+                # Pos_inicial de la yema en la imagen
+                ri = mano.actualizar_yema(camara, self.dedo)
+                temp["pos_inicial"] = ri
+
+                # Posición inicial del dedo
+                dedo_pos_inicial = mano.entregar_dedo_pos(self.dedo).copy()
+                dedo_pos = mano.entregar_dedo_pos(self.dedo).copy()
+
+                # El primer servo se ajusta para el ángulo dado
+                primer_servo = int((150 - angulo_s1)/self.m_n2a_s1)
+                dedo_pos[0] = primer_servo
+                limitado = mano.ajustar_dedo(self.dedo, dedo_pos)
+                #============================================
+                # Ajuste automático del tercer servo
+                mano.calcular_servo_3(self.dedo) 
+
+                # Magnitud de la primitiva/movimiento
+                dedo_pos_final = mano.entregar_dedo_pos(self.dedo).copy()
+                magnitud = np.array(dedo_pos_final) - np.array(dedo_pos_inicial)
+                temp["magnitud"] = magnitud[:-1]
+                mano.mover()
+                # Espera extra (enviar_serial ya tiene una espera)
+                time.sleep(1)
+
+                # Pos_final de la yema en la imagen
+                rf = mano.actualizar_yema(camara, self.dedo)
+                temp["pos_final"] = rf
+                temp["diferencia"] = rf - ri
+                temp["limitado"] = limitado
+
+                # Guardar la información generada
+                if not (temp["magnitud"] == np.array([0, 0])).all():
+                    self.primitivas.append(temp)
+
+                    # DEBUG
+                    print(" ")
+                    print(temp)
+                    print(" ")
+
+                # Borrar evita que se sobreescriban las primitivas
+                del temp
+
+        # ==========================================================
+        # Segunda parte: Moviendo servo 2
+
+        for angulo_s1 in angulos_s1:
+            # El primer servo se ajusta para el ángulo dado,
+            # el segundo a 0° y el tercero es automático
+            primer_servo = int((150 - angulo_s1)/self.m_n2a_s1)
+            segundo_servo = int((150 - 0)/self.m_n2a_s2)
+            limitado = mano.ajustar_dedo(self.dedo, 
+                                    [primer_servo, segundo_servo, 0])
+            mano.calcular_servo_3(self.dedo) 
+            mano.mover()
+            # 1 segundo extra de espera
+            time.sleep(1)
+        
+            for angulo_s2 in angulos_s2:
+                # "Primitiva" temporal:
+                temp = {}
+                temp["exploracion"] = True
+
+                # Pos_inicial de la yema en la imagen
+                ri = mano.actualizar_yema(camara, self.dedo)
+                temp["pos_inicial"] = ri
+
+                # Posición inicial del dedo
+                dedo_pos_inicial = mano.entregar_dedo_pos(self.dedo).copy()
+                dedo_pos = mano.entregar_dedo_pos(self.dedo).copy()
+
+                # El segundo servo se ajusta para el ángulo dado
+                segundo_servo = int((150 - angulo_s2)/self.m_n2a_s2)
+                dedo_pos[1] = segundo_servo
+                limitado = mano.ajustar_dedo(self.dedo, dedo_pos)
+                #============================================
+                # Ajuste automático del tercer servo
+                mano.calcular_servo_3(self.dedo) 
+
+                # Magnitud de la primitiva/movimiento
+                dedo_pos_final = mano.entregar_dedo_pos(self.dedo).copy()
+                magnitud = np.array(dedo_pos_final) - np.array(dedo_pos_inicial)
+                temp["magnitud"] = magnitud[:-1]
+                mano.mover()
+                # Espera extra (enviar_serial ya tiene una espera)
+                time.sleep(1)
+
+                # Pos_final de la yema en la imagen
+                rf = mano.actualizar_yema(camara, self.dedo)
+                temp["pos_final"] = rf
+                temp["diferencia"] = rf - ri
+                temp["limitado"] = limitado
+
+                # Guardar la información generada
+                if not (temp["magnitud"] == np.array([0, 0])).all():
+                    self.primitivas.append(temp)
+
+                    # DEBUG
+                    print(" ")
+                    print(temp)
+                    print(" ")
+
+                # Borrar evita que se sobreescriban las primitivas
+                del temp
+
+        print("===========================")
+        print("Primitivas creadas: {}".format(len(self.primitivas)))
+        print("===========================")
+
+
     def explorar(self, camara, mano):
         """Metodo de exploración, genera primitivas aleatorias"""
         print("\n\tExplorando...")
@@ -161,23 +295,7 @@ class Ctrl_ERC():
             # ================================================== # 
             # Calcular el tercer servo automáticamente
             if self.tercer_servo_auto:
-                
-                # Servos 1 y 2 codificados
-                dedo_pos = mano.entregar_dedo_pos(self.dedo)
-                primer_servo = dedo_pos[0]
-                segundo_servo = dedo_pos[1]
-
-                # Servos 1 y 2 en ángulos (0~360°)
-                primer_servo = -(primer_servo*self.m_n2a_s1 + self.n_n2a)
-                segundo_servo = -(segundo_servo*self.m_n2a_s2 + self.n_n2a)
-
-                # Servo 3 en ángulo y luego a codificado
-                tercer_servo = 170 - (primer_servo + segundo_servo)
-                tercer_servo = (150 - tercer_servo)/self.m_n2a_s2
-                
-                # Agregando el ángulo ajustado del servo 3
-                dedo_pos[-1] = int(tercer_servo)
-                _ = mano.ajustar_dedo(self.dedo, dedo_pos)
+                mano.calcular_servo_3(self.dedo)     
             
             # ================================================== #
 
@@ -412,30 +530,12 @@ class Ctrl_ERC():
             limitado, _, _ = mano.ajustar_dedo(self.dedo, dedo_pos)
             nueva_primitiva["limitado"] = limitado
             
-            
             # ================================================== # 
             # Calcular el tercer servo automáticamente
             if self.tercer_servo_auto:
-                
-                # Servos 1 y 2 codificados
-                dedo_pos = mano.entregar_dedo_pos(self.dedo)
-                primer_servo = dedo_pos[0]
-                segundo_servo = dedo_pos[1]
-
-                # Servos 1 y 2 en ángulos (0~360°)
-                primer_servo = -(primer_servo*self.m_n2a_s1 + self.n_n2a)
-                segundo_servo = -(segundo_servo*self.m_n2a_s2 + self.n_n2a)
-
-                # Servo 3 en ángulo y luego a codificado
-                tercer_servo = 170 - (primer_servo + segundo_servo)
-                tercer_servo = (150 - tercer_servo)/self.m_n2a_s2
-                
-                # Agregando el ángulo ajustado del servo 3
-                dedo_pos[-1] = int(tercer_servo)
-                _, _, _ = mano.ajustar_dedo(self.dedo, dedo_pos)
+                mano.calcular_servo_3(self.dedo)     
             
             # ================================================== #
-           
            
             # Mover dedo (la espera de 1 segundo está incluída)
             mano.mover()
@@ -636,14 +736,7 @@ class Ctrl_Pulgar():
 
             #============================================
             # Ajuste automático del tercer servo
-            # Ángulos de servos 2  y 3 (0~360°)
-            servo_2_ang = -(dedo_pos[1]*self.m_n2a + self.n_n2a)
-            servo_3_ang = 90 - servo_2_ang 
-            
-            # Ángulo servo 3 (codificado)
-            servo_3_cod = (150 - servo_3_ang)/self.m_n2a
-            dedo_pos[2] = servo_3_cod
-            _ = mano.ajustar_dedo("pulgar", dedo_pos)
+            mano.calcular_servo_3("pulgar")
             #============================================
 
             mano.mover()
@@ -674,9 +767,13 @@ class Ctrl_Pulgar():
     def mover(self, punto_objetivo, camara, mano):
         """Mueve el dedo al punto especificado. Consiste de un 
             solo movimiento. Luego se debe llamar a "ajuste_fino"."""
+        # Primitiva creada
+        primitiva_creada = {}
+        primitiva_creada["exploracion"] = False
         
         # Posición actual de la yema en la imagen
         ri = mano.actualizar_yema(camara, "pulgar")
+        primitiva_creada["pos_inicial"] = ri
 
         # Buscar la primitiva más cercana 
         primitivas = self.primitivas[:]
@@ -703,6 +800,7 @@ class Ctrl_Pulgar():
 
         # Ponderación de la magnitud de la primitiva
         magnitud = x * primitiva["magnitud"]
+        primitiva_creada["magnitud"] = magnitud
 
         # Movimiento...
         dedo_pos = mano.entregar_dedo_pos("pulgar")
@@ -722,6 +820,16 @@ class Ctrl_Pulgar():
 
         mano.mover()
 
+        # Posición final de la yema en la imagen
+        rf = mano.actualizar_yema(camara, "pulgar")
+        primitiva_creada["pos_final"] = rf
+
+        # Diferencia en la imagen
+        primitiva_creada["diferencia"] = rf - ri
+        
+        # Añadir primitiva nueva
+        self.primitivas.append(primitiva_creada)
+
 
     def evaluar_estado(self):
         """Evalúa si el movimiento realizado cumplió con su objetivo
@@ -733,6 +841,7 @@ class Ctrl_Pulgar():
         """Mueve el segundo servo del dedo en saltos de 1 o 3 grados
             hasta que haya contacto entre la yema y el objeto."""
         # Caso pulgar: sólo mover servo 2, cerrándose (sumando)
+        # Primitiva temporal guarda el "movimiento fino"
 
         while True:
             # Hay contacto yema-objeto?
@@ -751,12 +860,21 @@ class Ctrl_Pulgar():
 
             print("[DEBUG] {} grados más...".format(grados))
 
+            # Nueva primitiva temporal
+            primitiva_temp = {}
+
+            # Posición actual de la yema en la imagen
+            ri = mano.actualizar_yema(camara, "pulgar")
+            primitiva_temp["pos_inicial"] = ri
+
             # Posición actual del dedo
             dedo_pos = mano.entregar_dedo_pos("pulgar") 
 
             # Actualización servo 2
             magnitud = grados/self.m_n2a
             dedo_pos[1] += int(magnitud)
+
+            primitiva_temp["magnitud"] = magnitud
 
             # Compensación servo 3
             magnitud = -grados/self.m_n2a
@@ -766,15 +884,40 @@ class Ctrl_Pulgar():
             _, _, _ = mano.ajustar_dedo("pulgar", dedo_pos)
             mano.mover()
 
+            # Posición final de la yema en la imagen
+            rf = mano.actualizar_yema(camara, "pulgar")
+            primitiva_temp["pos_final"] = rf
+
+            # Diferencia en la imagen
+            primitiva_temp["diferencia"] = rf - ri
+
+            # Guardar primitiva y borrar para no sobreescribir
+            self.primitivas.append(primitiva_temp)
+            del primitiva_temp
+
         # Un último movimiento (de 1°)
+        primitiva_temp = {}
+
+        # Posición actual de la yema en la imagen
+        ri = mano.actualizar_yema(camara, "pulgar")
+        primitiva_temp["pos_inicial"] = ri
+
         magnitud = 1/self.m_n2a
+        primitiva_temp["magnitud"] = magnitud
         dedo_pos = mano.entregar_dedo_pos("pulgar") 
         dedo_pos[1] += int(magnitud)
         _, _, _ = mano.ajustar_dedo("pulgar", dedo_pos)
         mano.mover()
 
+        # Posición final de la yema en la imagen
+        rf = mano.actualizar_yema(camara, "pulgar")
+        primitiva_temp["pos_final"] = rf
 
+        # Diferencia en la imagen
+        primitiva_temp["diferencia"] = rf - ri
 
+        # Guardar la última primitiva 
+        self.primitivas.append(primitiva_temp)
 
 
 

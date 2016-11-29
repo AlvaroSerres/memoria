@@ -166,44 +166,54 @@ def determinar_contacto(imagen, dedo, offset_hor=20):
     cY = centroide[0][1]
 
     # El contorno más grande que se encontró
-    cnt = cnts[0]
-    # Lista de puntos de contorno
-    puntos_lista = []
-    for punto in cnt:
-        puntos_lista.append(punto[0][:])
-       
-    # Restricción eje vertical ("y" de la imagen)
-    lim_sup = cY + 20
-    lim_inf = cY - 20
-    puntos_lista = [p for p in puntos_lista if p[1]>lim_inf 
-            and p[1]<lim_sup]
+    try:
+        cnt = cnts[0]
 
-    # Restricción eje horizontal ("x" de la imagen)
-    mayor = 0
-    menor = 10*mask.shape[1]
-    for punto in puntos_lista:
-        if punto[0] > mayor:
-            mayor = punto[0]
-        
-        if punto[0] < menor:
-            menor = punto[0]
+    except IndexError:
+        print("-----------------")
+        print("No se encontró ningún objeto rojo...")
+        print("-----------------")
+        return False
 
-    # El punto de agarre a la DERECHA es aprox [mayor, cY]
-    if dedo=="indice" or dedo=="anular":
-        punto_agarre = [mayor+offset_hor, cY]
+    else:
+        # Lista de puntos de contorno
+        puntos_lista = []
+        for punto in cnt:
+            puntos_lista.append(punto[0][:])
+           
+        # Restricción eje vertical ("y" de la imagen)
+        lim_sup = cY + 20
+        lim_inf = cY - 20
+        puntos_lista = [p for p in puntos_lista if p[1]>lim_inf 
+                and p[1]<lim_sup]
 
-    # El punto de agarre a la IZQUIERDA es aprox [menor, cY]
-    elif dedo=="pulgar":
-        punto_agarre = [menor-offset_hor, cY]
+        # Restricción eje horizontal ("x" de la imagen)
+        mayor = 0
+        menor = 10*mask.shape[1]
+        for punto in puntos_lista:
+            if punto[0] > mayor:
+                mayor = punto[0]
+            
+            if punto[0] < menor:
+                menor = punto[0]
 
-    # Retorna el punto de agarre derecho o izquierdo según el dedo
-    return punto_agarre
+        # El punto de agarre a la DERECHA es aprox [mayor, cY]
+        if dedo=="indice" or dedo=="anular":
+            punto_agarre = [mayor+offset_hor, cY]
+
+        # El punto de agarre a la IZQUIERDA es aprox [menor, cY]
+        elif dedo=="pulgar":
+            punto_agarre = [menor-offset_hor, cY]
+
+        # Retorna el punto de agarre derecho o izquierdo según el dedo
+        return punto_agarre
 
 
-def guardar_datos(nombre, datos, method="numerado"):
+def guardar_datos(nombre, datos, 
+                directory="datos_guardados/",
+                method="numerado",
+                ):
     """Guarda los datos en formato json""" 
-    # Directorio en donde guardar
-    directory = "datos_guardados/"
     # Primera parte del nombre
     filename_1 = "datos_"
     nombre += "_"
@@ -222,7 +232,7 @@ def guardar_datos(nombre, datos, method="numerado"):
         filename = directory + filename_1 + nombre + filename_3
 
     elif method == "numerado":
-        p = pathlib.Path("./datos_guardados")
+        p = pathlib.Path("./" + directory)
         archivos = []
 
         for f in p.iterdir():
@@ -247,11 +257,12 @@ def guardar_datos(nombre, datos, method="numerado"):
     print("---------------------------------------")
 
 
-def cargar_datos(nombre, extension):
+def cargar_datos(nombre, 
+                extension, 
+                directory="datos_guardados/",
+                ):
     """Para cargar las primitivas guardadas anteriormente
         (directorio 'datos_guardados')"""
-    # Directorio donde buscar datos
-    directory = "datos_guardados/"
     # Primera parte del nombre
     filename_1 = "datos_"
     # Segunda parte del nombre
@@ -435,17 +446,18 @@ class Mano():
             puerto ='/dev/ttyUSB0',
             # Para que el pulgar quede hacia arriba
             pos_inicial_pulgar="arriba",
+            pos_inicial_indice="adelante",
             ):
         """Inicialización de la mano (atributos)"""
             
-        if pos_inicial_pulgar == "arriba" or pos_inicial_pulgar == "medio":
-            self.yema_pulgar_visible=True
+        self.yema_pulgar_visible=True
+        # if pos_inicial_pulgar == "arriba" or pos_inicial_pulgar == "medio":
+            # self.yema_pulgar_visible=True
 
-        else:
-            self.yema_pulgar_visible=False
+        # else:
+            # self.yema_pulgar_visible=False
 
-
-        # Posiciones iniciales   
+        # Posiciones iniciales Pulgar
         if pos_inicial_pulgar == "arriba":
             # Pulgar hacia arriba (yema visible)
             self.pulgar_pos = np.array([1600, 212, 512])
@@ -455,15 +467,24 @@ class Mano():
             self.pulgar_pos = np.array([1850, 212, 512])
        
         else:
+            # Pulgar hacia abajo (yema VISIBLE)
+            self.pulgar_pos = np.array([2350, 212, 512])
             # Pulgar hacia abajo (yema no visible)
-            self.pulgar_pos = np.array([2350, 212, 212])
+            # self.pulgar_pos = np.array([2350, 212, 212])
 
-        self.indice_pos = np.array([1600, 400, 200])
+        # Posiciones iniciales Indice
+        if pos_inicial_indice == "estirado":
+            # dedo índice "abierto"
+            self.indice_pos = np.array([2100, 500, 200])
+
+        else:
+            self.indice_pos = np.array([1600, 400, 200])
+
         self.anular_pos = np.array([512, 520, 350])
         
         # Posiciones límite
         self.pulgar_pos_lim = np.array([[825, 200, 200], [2350, 513, 513]])
-        self.indice_pos_lim = np.array([[200, 200, 200], [2100, 550, 550]])
+        self.indice_pos_lim = np.array([[1000, 200, 200], [2100, 550, 550]])
         self.anular_pos_lim = np.array([[200, 200, 200], [550, 550, 513]])
 
         # Posición de cada yema en la imagen
@@ -473,6 +494,12 @@ class Mano():
 
         # Puerto serial del controlador
         self.puerto = puerto
+
+        # ==========================================================
+        # Para convertir de número codificado a ángulo y viceversa
+        self.m_n2a_ax = 300/1024
+        self.m_n2a_mx = 300/4096
+        self.n_n2a = -150
 
         # Acciones iniciales
         self.mover(comienza=True)
@@ -636,7 +663,47 @@ class Mano():
         enviar_serial(self.puerto, formateado)
 
         
+    def calcular_servo_3(self, dedo):
+        """Calcula el ángulo codificado del servo 3 del dedo 
+            especificado. Ajusta el atributo de posición pero
+            no ejecuta el movimiento"""
 
+        # Servos 1 y 2 codificados
+        dedo_pos = self.entregar_dedo_pos(dedo)
+        primer_servo = dedo_pos[0]
+        segundo_servo = dedo_pos[1]
+
+        if dedo == "indice":
+            # Servos 1 y 2 en ángulos (0~360°)
+            primer_servo = -(primer_servo*self.m_n2a_mx + self.n_n2a)
+            segundo_servo = -(segundo_servo*self.m_n2a_ax + self.n_n2a)
+
+            # Servo 3 en ángulo y luego a codificado
+            tercer_servo = 170 - (primer_servo + segundo_servo)
+            tercer_servo = (150 - tercer_servo)/self.m_n2a_ax
+
+        elif dedo == "anular":
+            # Servos 1 y 2 en ángulos (0~360°)
+            primer_servo = -(primer_servo*self.m_n2a_ax + self.n_n2a)
+            segundo_servo = -(segundo_servo*self.m_n2a_ax + self.n_n2a)
+            
+            # Servo 3 en ángulo y luego a codificado
+            tercer_servo = 170 - (primer_servo + segundo_servo)
+            tercer_servo = (150 - tercer_servo)/self.m_n2a_ax
+        
+        elif dedo == "pulgar":
+            # Ángulos de servos 2  y 3 (0~360°)
+            segundo_servo = -(segundo_servo*self.m_n2a_ax + self.n_n2a)
+            tercer_servo = 90 - segundo_servo 
+            
+            # Ángulo servo 3 (codificado)
+            tercer_servo = (150 - tercer_servo)/self.m_n2a_ax
+
+        # Agregando el ángulo ajustado del servo 3
+        dedo_pos[-1] = int(tercer_servo)
+        _, _, _ = self.ajustar_dedo(dedo, dedo_pos)
+
+        # Método tipo Void, sin retorno
 
 
 # ----------------- F I N    C L A S E -------------

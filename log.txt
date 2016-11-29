@@ -7,14 +7,50 @@ TODOS:
         esperar menos entre movimientos. Para eso habría que
         cambiar la espera al final de la función de comunicación 
         con los servos.
+
+    Modificación (15/11/16): El cálculo "automático" del servo 3
+        ahora se hace con un método de la clase mano. Está 
+        implementado para los tres dedos. Aún así, en "ajuste_fino"
+        para ambas clases de controlador se está haciendo de forma
+        explícita.
+
 =====================================================================
 *Crear main para dedo índice con la opción de controlar 2 o 3 servos.
 En caso de 2 servos, el tercero debiese calcularse para estar mirando 
 "hacia adentro":
     
+    Modificar: Hasta ahora, para el control del dedo índice, se mueve
+        el dedo en "pasos" relativamente pequeños (limitando el módulo
+        de la primitiva) para evitar error (*). Luego de ejecutar cada
+        movimiento, se verifica la posición de la yema en la imagen y 
+        termina de rellenar con los datos de la primitiva recién ejecutada.
+        Específicamente, la posición final en que quedó la yema determina 
+        que primitivas usar para el cálculo de la siguiente. 
+
+        Con el fin de lograr un movimiento un poco más fluído (rápido y 
+        de cierta forma, más natural), me propongo implementar un pequeño
+        sistema de "predicción" que permita calcular los pasos necesarios
+        para llegar el objetivo. Esto es, calcular la primera primitiva, y 
+        luego predecir en que lugar quedará la yema. Suponiendo que tengo la
+        posición final de la yema, usar esta info para calcular la siguiente.
+        Hacer esto hasta que se llegue (según la estimación o predicción)
+        al objetivo. Una vez que se tengan todas las primitivas necesarias, 
+        bastaría con sumar todas la magnitudes y ejecutar una única primitiva.
+        Esa única primitva a ejecutar es la única que debiese ser guardada en 
+        la lista de primitivas del controlador (atributos se llenan sólo con 
+        información real, no predicciones).
+
+        (*) el error se explica porque solo se tiene información del 
+        comportamiento local de cada dedo. Por ejemplo, si muevo un servo
+        en 30 grados, el efecto que tiene en el desplazamiento de la yema en 
+        la imagen dependerá de dónde comenzó a moverse el dedo.
+
     Modificar: Agregar una función de exploración exhaustiva que permita
         generar una buena base de datos de primitivas. Habrá que usar
         argumentos de línea de comando.
+    
+        Agregado: Se agregó un método de exploración exhaustiva para el 
+            dedo índice (main_indice_2.py).
 
     Modificar: La forma en que se calcula una nueva primitiva. Que se
         considere una columna de 1's en las matrices de magnitudes
@@ -165,6 +201,18 @@ En caso de 2 servos, el tercero debiese calcularse para estar mirando
 =====================================================================
 *Crear main para dedo pulgar para controlar 2 servos (altura fija):
 
+    Modificar: El controlador del pulgar no está guardando las primitivas
+        generadas con método mover (...). Es necesario almacenarlas
+        en alguna parte, para que al final del programa se puedan guardar
+        la primitivas generadas y replicar la trayectoria.
+
+        Agregado (28/11/16): Para el controlador del pulgar, los métodos
+            mover() y ajuste_fino() ahora agregan las primitivas
+            que generan a la lista de primitivas del controlador.
+            El main_pulgar.py permite guardar las priimitivas que se
+            generan durante su ejecución (se puede replicar la trayectoria
+            despúes (videos)).
+
     Modificar: Para mover dos o más dedos al "mismo tiempo", habrá
         que poner un flag de "no_wait" en la función mover() de la mano,
         que, a su vez, se la traspase a la función de comunicación serial.
@@ -284,6 +332,19 @@ En caso de 2 servos, el tercero debiese calcularse para estar mirando
 
 =====================================================================
 *Crear main para dedo índice (2 o 3 motores) y pulgar
+
+    Agregado (28/11/12): Se creó el main_indice_pulgar.py. Este script
+        lleva a cabo el agarre del objeto rojo con dos dedos (índice y pulgar).
+        Gran parte del código se "hereda" de main_pulgar.py y 
+        main_indice_2.py. 
+
+        Primero se mueve el dedo pulgar (un solo movimiento) y luego se 
+        entra en el loop de control del dedo índice. Cuando llega a su punto 
+        objetivo (cercano al contorno del objeto), se procede con el ajuste fino,
+        primero para el pulgar y luego para el índice.
+
+    Posible modificación: lograr que ambos dedos hagan su ajuste fino de forma 
+        simultánea.
 
 =====================================================================
 *Añadir flag en en función de creación de primitiva en caso de que no 
