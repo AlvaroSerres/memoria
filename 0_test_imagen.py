@@ -11,7 +11,7 @@ args = vars(ap.parse_args())
 
 camara = cv2.VideoCapture(1)
 
-for i in range(1000):
+for i in range(3000):
     # Toma una foto
     # foto = mf.take_picture(camara)
     _, foto = camara.read()
