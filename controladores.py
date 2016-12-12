@@ -646,6 +646,13 @@ class Ctrl_ERC():
 
             print("[DEBUG] {} grados más...".format(grados))
 
+            # Nueva primitiva temporal
+            primitiva_temp = {}
+
+            # Posición actual de la yema en la imagen
+            ri = mano.actualizar_yema(camara, "indice")
+            primitiva_temp["pos_inicial"] = ri
+
             # Posición actual del dedo
             dedo_pos = mano.entregar_dedo_pos(self.dedo) 
 
@@ -653,20 +660,52 @@ class Ctrl_ERC():
             magnitud = -grados/self.m_n2a_s1
             dedo_pos[0] += int(magnitud)
 
+            primitiva_temp["magnitud"] = magnitud
+
             # Compensación tercer servo
             magnitud = grados/self.m_n2a_s2
             dedo_pos[2] += int(magnitud)
             
+
             # Ajuste y movimiento
             _, _, _ = mano.ajustar_dedo(self.dedo, dedo_pos)
             mano.mover()
 
+            # Posición final de la yema en la imagen
+            rf = mano.actualizar_yema(camara, "indice")
+            primitiva_temp["pos_final"] = rf
+
+            # Diferencia en la imagen
+            primitiva_temp["diferencia"] = rf - ri
+
+            # Guardar primitiva y borrar para no sobreescribir
+            primitiva_temp["ajuste_fino"] = True
+            self.primitivas.append(primitiva_temp)
+            del primitiva_temp
+
         # Un último movimiento (de 1°)
+        primitiva_temp = {}
+
+        # Posición actual de la yema en la imagen
+        ri = mano.actualizar_yema(camara, "indice")
+        primitiva_temp["pos_inicial"] = ri
+
         magnitud = -1/self.m_n2a_s1
         dedo_pos = mano.entregar_dedo_pos(self.dedo) 
         dedo_pos[0] += int(magnitud)
         _, _, _ = mano.ajustar_dedo(self.dedo, dedo_pos)
         mano.mover()
+
+        # Posición final de la yema en la imagen
+        rf = mano.actualizar_yema(camara, "indice")
+        primitiva_temp["pos_final"] = rf
+
+        # Diferencia en la imagen
+        primitiva_temp["diferencia"] = rf - ri
+
+        # Guardar la última primitiva 
+        primitiva_temp["ajuste_fino"] = True
+        self.primitivas.append(primitiva_temp)
 
 
     def cargar_primitivas(self):
@@ -892,6 +931,7 @@ class Ctrl_Pulgar():
             primitiva_temp["diferencia"] = rf - ri
 
             # Guardar primitiva y borrar para no sobreescribir
+            primitiva_temp["ajuste_fino"] = True
             self.primitivas.append(primitiva_temp)
             del primitiva_temp
 
@@ -903,7 +943,7 @@ class Ctrl_Pulgar():
         primitiva_temp["pos_inicial"] = ri
 
         magnitud = 1/self.m_n2a
-        primitiva_temp["magnitud"] = magnitud
+        primitiva_temp["magnitud"] = int(magnitud)
         dedo_pos = mano.entregar_dedo_pos("pulgar") 
         dedo_pos[1] += int(magnitud)
         _, _, _ = mano.ajustar_dedo("pulgar", dedo_pos)
@@ -917,6 +957,7 @@ class Ctrl_Pulgar():
         primitiva_temp["diferencia"] = rf - ri
 
         # Guardar la última primitiva 
+        primitiva_temp["ajuste_fino"] = True
         self.primitivas.append(primitiva_temp)
 
 

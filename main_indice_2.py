@@ -70,6 +70,8 @@ def main(args):
     datos = mf.cargar_datos("indice", extension)
     # si no se pudo cargar datos, termina
     if datos == None:
+        print("[ERROR]: No se pudo cargar datos. Revisar existencia de archivo")
+        print("Programa terminado!")
         return
     else:
         ctrl.primitivas = datos
@@ -96,7 +98,10 @@ def main(args):
         # Ya no se necesita el flag de singular
         _ = ctrl.calcular_primitiva(r_objetivo, camara, mano)
 
-        # Verificación de objetivo alcanzado por medio de hay_contacto
+        estado = ctrl.evaluar_estado(r_objetivo)
+        print("Estado: {}".format(estado))
+
+        # Verificar si la yema está cerca del objeto
         imagen = mf.take_picture(camara)
         _, dist = mf.hay_contacto(imagen, "indice")
 
@@ -107,8 +112,15 @@ def main(args):
         if ctrl.flags["_explorar_"]:
             ctrl.explorar(camara, mano)
 
-        estado = ctrl.evaluar_estado(r_objetivo)
-        print("Estado: {}".format(estado))
+            estado = ctrl.evaluar_estado(r_objetivo)
+            print("Estado: {}".format(estado))
+
+            # Verificar si la yema está cerca del objeto
+            imagen = mf.take_picture(camara)
+            _, dist = mf.hay_contacto(imagen, "indice")
+
+            if dist < 30:
+                break
 
     # ========================================================
     # Ajuste "fino"
@@ -139,8 +151,16 @@ def main(args):
                       directory="trayectorias_1_dedo/",
                       )
 
+    camara.release()
+
 # ============================================================
 # Llamada al main
 main(args)
+
+print("===========================")
+print("terminado")
+print("===========================")
+
+
 
 

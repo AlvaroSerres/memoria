@@ -157,6 +157,7 @@ def main(args):
                       directory="trayectorias_2_dedos/",
                       )
 
+    camara.release()
 
 # Llamado a main()
 main(args)
@@ -164,7 +165,6 @@ main(args)
 print("===========================")
 print("terminado")
 print("===========================")
-
 
 
 

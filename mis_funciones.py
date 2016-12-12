@@ -30,11 +30,11 @@ def color_filter(image, color):
     """Filtra por color especificado (método HSV)"""
     # Definicion de colores 
     if color == "blue":
-        lower = np.array([110, 90, 30])
-        upper = np.array([130, 255, 255])
+        lower = np.array([100, 100, 100])
+        upper = np.array([115, 255, 255])
     
     elif color == "green":
-        lower = np.array([40, 90, 30])
+        lower = np.array([40, 80, 30])
         upper = np.array([75, 255, 255])
    
     else: # red
@@ -58,7 +58,7 @@ def color_filter(image, color):
         mask = cv2.inRange(hsv, lower, upper)
 
     # Operación morfológica "opening" para eliminar "blobs"
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 5))
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
     # Se devuelve la máscara (no hay necesidad de aplicarla)
     return mask
